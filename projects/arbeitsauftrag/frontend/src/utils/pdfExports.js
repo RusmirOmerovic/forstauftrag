@@ -1,27 +1,40 @@
-// src/utils/pdfExport.js
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
 
-export const exportToPDF = async (elementId, filename = "formularexport.pdf") => {
-  const input = document.getElementById(elementId);
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
-  if (!input) {
-    console.error("Element nicht gefunden:", elementId);
-    return;
-  }
+export function exportToPDF(formData) {
+  const docDefinition = {
+    content: [
+      { text: '📝 Forst-Auftragsformular', style: 'header' },
+      { text: '\n' },
 
-  const canvas = await html2canvas(input, { scale: 2 });
-  const imgData = canvas.toDataURL("image/png");
+      {
+        table: {
+          widths: ['40%', '60%'],
+          body: Object.entries(formData).map(([key, value]) => {
+            const label = key.replace(/_/g, ' ').toUpperCase();
+            let displayValue = Array.isArray(value)
+              ? value.map(v =>
+                  typeof v === "object" ? `${v.art} (${v.bediener})` : v
+                ).join(", ")
+              : typeof value === "boolean"
+              ? value ? "Ja" : "Nein"
+              : value;
+            return [label, displayValue];
+          }),
+        },
+        layout: 'lightHorizontalLines'
+      }
+    ],
+    styles: {
+      header: {
+        fontSize: 18,
+        bold: true,
+        alignment: 'center'
+      }
+    }
+  };
 
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "px",
-    format: "a4"
-  });
-
-  const width = pdf.internal.pageSize.getWidth();
-  const height = (canvas.height * width) / canvas.width;
-
-  pdf.addImage(imgData, "PNG", 0, 0, width, height);
-  pdf.save(filename);
-};
+  pdfMake.createPdf(docDefinition).download("forstauftrag.pdf");
+}
